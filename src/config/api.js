@@ -35,4 +35,11 @@ export const API_ENDPOINTS = {
   // 用户相关
   USER_PROFILE: '/user/profile',
   USER_STATS: '/user/stats',
+
+  // 订阅相关
+  SUBSCRIBE: '/subscribe',
+
+  // 关注相关
+  FOLLOW_AUTHOR: (authorId) => `/authors/${authorId}/follow`,
+  UNFOLLOW_AUTHOR: (authorId) => `/authors/${authorId}/follow`,
 };

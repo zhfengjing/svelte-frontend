@@ -3,7 +3,7 @@
   import { link } from 'svelte-spa-router';
   import Loading from '../components/Loading.svelte';
   import ErrorMessage from '../components/ErrorMessage.svelte';
-  import { articleApi, commentApi } from '../services/api.js';
+  import { articleApi, commentApi, followApi } from '../services/api.js';
 
   export let params = {};
 
@@ -14,6 +14,11 @@
   let loading = true;
   let error = null;
   let submitting = false;
+
+  // 关注状态
+  let following = false;
+  let followLoading = false;
+  let followCount = 0;
 
   // 加载文章数据
   const loadArticle = async () => {
@@ -31,6 +36,17 @@
       article = articleData.data || articleData;
       comments = commentsData.data || commentsData;
 
+      // 加载关注状态
+      if (article) {
+        const authorId = article.authorId || article.author;
+        followApi.getFollowStatus(authorId)
+          .then(res => {
+            following = res.isFollowing ?? false;
+            followCount = res.followCount ?? 0;
+          })
+          .catch(() => {}); // 关注状态加载失败不影响文章显示
+      }
+
       // 加载相关文章（基于分类）
       if (article && article.categoryId) {
         const relatedData = await articleApi.getArticles({
@@ -45,6 +61,28 @@
       error = err.response?.data?.message || '加载文章失败，请稍后重试';
     } finally {
       loading = false;
+    }
+  };
+
+  // 关注/取消关注作者
+  const handleFollow = async () => {
+    const authorId = article.authorId || article.author;
+    followLoading = true;
+    try {
+      if (following) {
+        const res = await followApi.unfollowAuthor(authorId);
+        following = false;
+        followCount = res.followCount ?? followCount;
+      } else {
+        const res = await followApi.followAuthor(authorId);
+        following = true;
+        followCount = res.followCount ?? followCount;
+      }
+    } catch (err) {
+      console.error('关注操作失败:', err);
+      alert(err.response?.data?.message || '操作失败，请稍后重试');
+    } finally {
+      followLoading = false;
     }
   };
 
@@ -193,7 +231,20 @@
           <div class="author-avatar">👨‍💻</div>
           <h3>{article.author}</h3>
           <p>全栈开发工程师，热爱技术分享</p>
-          <button class="follow-btn">+ 关注</button>
+          <button
+            class="follow-btn"
+            class:following
+            disabled={followLoading}
+            on:click={handleFollow}
+          >
+            {#if followLoading}
+              处理中...
+            {:else if following}
+              ✓ 已关注 {followCount > 0 ? `(${followCount})` : ''}
+            {:else}
+              + 关注 {followCount > 0 ? `(${followCount})` : ''}
+            {/if}
+          </button>
         </div>
 
         <!-- 相关文章 -->
@@ -542,9 +593,25 @@
     transition: all 0.3s ease;
   }
 
-  .follow-btn:hover {
+  .follow-btn:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  }
+
+  .follow-btn.following {
+    background: #e2e8f0;
+    color: #4a5568;
+  }
+
+  .follow-btn.following:hover:not(:disabled) {
+    background: #fed7d7;
+    color: #e53e3e;
+    box-shadow: none;
+  }
+
+  .follow-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
   }
 
   /* 相关文章 */

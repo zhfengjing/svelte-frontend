@@ -3,6 +3,11 @@
   import Header from './components/Header.svelte';
   import Footer from './components/Footer.svelte';
 
+  // 为匿名用户生成唯一标识作为认证 token（后端直接将其用作 followerId）
+  if (!localStorage.getItem('token')) {
+    localStorage.setItem('token', crypto.randomUUID());
+  }
+
   // 导入页面组件
   import Home from './pages/Home.svelte';
   import Articles from './pages/Articles.svelte';

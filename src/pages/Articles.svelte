@@ -12,6 +12,10 @@
   let loading = true;
   let error = null;
 
+  // 分页状态
+  let currentPage = 1;
+  const pageSize = 9;
+
   // 加载数据
   const loadData = async () => {
     loading = true;
@@ -40,14 +44,36 @@
   $: filteredArticles = allArticles.filter(article => {
     const matchesSearch = article.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          article.excerpt?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || article.categoryId === selectedCategory;
+    const matchesCategory = selectedCategory === 'all' || article.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  // 当分类或搜索改变时，可以选择重新加载数据
-  $: if (selectedCategory || searchQuery) {
-    // 可以在这里添加防抖搜索逻辑
+  // 筛选条件变化时重置到第一页
+  $: if (searchQuery || selectedCategory) {
+    currentPage = 1;
   }
+
+  // 分页计算
+  $: totalPages = Math.ceil(filteredArticles.length / pageSize);
+  $: paginatedArticles = filteredArticles.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  // 页码列表（最多显示5个页码）
+  $: pageNumbers = (() => {
+    if (totalPages <= 5) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    let start = Math.max(1, currentPage - 2);
+    let end = Math.min(totalPages, start + 4);
+    if (end - start < 4) start = Math.max(1, end - 4);
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  })();
+
+  const goToPage = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      currentPage = page;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   onMount(() => {
     loadData();
@@ -78,8 +104,8 @@
         {#each categories as category}
           <button
             class="category-btn"
-            class:active={selectedCategory === category.id}
-            on:click={() => selectedCategory = category.id}
+            class:active={selectedCategory === (category.id === 'all' ? 'all' : category.name)}
+            on:click={() => selectedCategory = category.id === 'all' ? 'all' : category.name}
           >
             {category.name}
           </button>
@@ -94,12 +120,16 @@
       <ErrorMessage message={error} onRetry={loadData} />
     {:else}
       <div class="results-info">
-        <p>找到 <strong>{filteredArticles.length}</strong> 篇文章</p>
+        <p>找到 <strong>{filteredArticles.length}</strong> 篇文章
+          {#if totalPages > 1}
+            ，第 <strong>{currentPage}</strong> / <strong>{totalPages}</strong> 页
+          {/if}
+        </p>
       </div>
 
-      {#if filteredArticles.length > 0}
+      {#if paginatedArticles.length > 0}
         <div class="articles-grid">
-          {#each filteredArticles as article}
+          {#each paginatedArticles as article}
             <ArticleCard {article} />
           {/each}
         </div>
@@ -112,16 +142,28 @@
       {/if}
     {/if}
 
-    <!-- 分页（示例） -->
-    <div class="pagination">
-      <button class="page-btn" disabled>← 上一页</button>
-      <div class="page-numbers">
-        <button class="page-number active">1</button>
-        <button class="page-number">2</button>
-        <button class="page-number">3</button>
+    <!-- 分页 -->
+    {#if !loading && !error && totalPages > 1}
+      <div class="pagination">
+        <button class="page-btn" disabled={currentPage === 1} on:click={() => goToPage(currentPage - 1)}>
+          ← 上一页
+        </button>
+        <div class="page-numbers">
+          {#each pageNumbers as page}
+            <button
+              class="page-number"
+              class:active={page === currentPage}
+              on:click={() => goToPage(page)}
+            >
+              {page}
+            </button>
+          {/each}
+        </div>
+        <button class="page-btn" disabled={currentPage === totalPages} on:click={() => goToPage(currentPage + 1)}>
+          下一页 →
+        </button>
       </div>
-      <button class="page-btn">下一页 →</button>
-    </div>
+    {/if}
   </div>
 </div>
 

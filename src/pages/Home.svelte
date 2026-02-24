@@ -4,12 +4,18 @@
   import ArticleCard from '../components/ArticleCard.svelte';
   import Loading from '../components/Loading.svelte';
   import ErrorMessage from '../components/ErrorMessage.svelte';
-  import { articleApi, userApi } from '../services/api.js';
+  import { articleApi, userApi, subscribeApi } from '../services/api.js';
 
   let featuredArticles = [];
   let stats = [];
   let loading = true;
   let error = null;
+
+  // 订阅状态
+  let subscribeEmail = '';
+  let subscribing = false;
+  let subscribeSuccess = false;
+  let subscribeError = '';
 
   // 加载数据
   const loadData = async () => {
@@ -39,6 +45,29 @@
       ];
     } finally {
       loading = false;
+    }
+  };
+
+  const handleSubscribe = async () => {
+    subscribeError = '';
+    if (!subscribeEmail.trim()) {
+      subscribeError = '请输入邮箱地址';
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(subscribeEmail)) {
+      subscribeError = '请输入有效的邮箱地址';
+      return;
+    }
+
+    subscribing = true;
+    try {
+      await subscribeApi.subscribe(subscribeEmail);
+      subscribeSuccess = true;
+      subscribeEmail = '';
+    } catch (err) {
+      subscribeError = err.response?.data?.message || '订阅失败，请稍后重试';
+    } finally {
+      subscribing = false;
     }
   };
 
@@ -124,16 +153,29 @@
       <div class="subscribe-card">
         <h2>📬 订阅我的博客</h2>
         <p>获取最新文章和技术见解，直接发送到你的邮箱</p>
-        <form class="subscribe-form" on:submit|preventDefault>
-          <input
-            type="email"
-            placeholder="输入你的邮箱地址"
-            class="subscribe-input"
-          />
-          <button type="submit" class="btn btn-primary">
-            订阅
-          </button>
-        </form>
+
+        {#if subscribeSuccess}
+          <div class="subscribe-success">
+            🎉 订阅成功！感谢你的关注，最新内容将发送到你的邮箱。
+          </div>
+        {:else}
+          <form class="subscribe-form" on:submit|preventDefault={handleSubscribe}>
+            <input
+              type="email"
+              placeholder="输入你的邮箱地址"
+              class="subscribe-input"
+              class:input-error={subscribeError}
+              bind:value={subscribeEmail}
+              disabled={subscribing}
+            />
+            <button type="submit" class="btn btn-primary" disabled={subscribing}>
+              {subscribing ? '订阅中...' : '订阅'}
+            </button>
+          </form>
+          {#if subscribeError}
+            <p class="subscribe-error">{subscribeError}</p>
+          {/if}
+        {/if}
       </div>
     </div>
   </section>
@@ -343,6 +385,30 @@
   .subscribe-input:focus {
     outline: 2px solid white;
     outline-offset: 2px;
+  }
+
+  .subscribe-input:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  .input-error {
+    outline: 2px solid #fc8181;
+    outline-offset: 2px;
+  }
+
+  .subscribe-error {
+    margin-top: 0.75rem;
+    color: #fed7d7;
+    font-size: 0.9rem;
+  }
+
+  .subscribe-success {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 500;
   }
 
   /* 按钮样式 */

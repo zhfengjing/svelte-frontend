@@ -107,6 +107,49 @@ export const commentApi = {
 };
 
 /**
+ * 关注相关 API
+ */
+export const followApi = {
+  // 查询关注状态
+  getFollowStatus: (authorId) => {
+    return request({
+      method: 'GET',
+      url: API_ENDPOINTS.FOLLOW_AUTHOR(authorId)
+    });
+  },
+
+  // 关注作者
+  followAuthor: (authorId) => {
+    return request({
+      method: 'POST',
+      url: API_ENDPOINTS.FOLLOW_AUTHOR(authorId)
+    });
+  },
+
+  // 取消关注作者
+  unfollowAuthor: (authorId) => {
+    return request({
+      method: 'DELETE',
+      url: API_ENDPOINTS.UNFOLLOW_AUTHOR(authorId)
+    });
+  }
+};
+
+/**
+ * 订阅相关 API
+ */
+export const subscribeApi = {
+  // 订阅博客
+  subscribe: (email) => {
+    return request({
+      method: 'POST',
+      url: API_ENDPOINTS.SUBSCRIBE,
+      data: { email }
+    });
+  }
+};
+
+/**
  * 用户相关 API
  */
 export const userApi = {
