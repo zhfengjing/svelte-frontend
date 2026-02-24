@@ -1,9 +1,9 @@
 <script>
   import { onMount } from 'svelte';
-  import { link } from 'svelte-spa-router';
+  import { link, push } from 'svelte-spa-router';
   import Loading from '../components/Loading.svelte';
   import ErrorMessage from '../components/ErrorMessage.svelte';
-  import { userApi } from '../services/api.js';
+  import { userApi, articleApi } from '../services/api.js';
 
   let userProfile = null;
   let skills = [];
@@ -13,6 +13,12 @@
   let stats = [];
   let loading = true;
   let error = null;
+
+  // 我的文章
+  let myArticles = [];
+  let articlesLoading = false;
+  let deletingId = null;
+  let publishingId = null;
 
   // 默认数据（作为后备）
   const defaultData = {
@@ -102,8 +108,59 @@
     }
   };
 
+  // 加载我的文章列表（从 localStorage 读取 id，逐个请求）
+  const loadMyArticles = async () => {
+    articlesLoading = true;
+    try {
+      const ids = JSON.parse(localStorage.getItem('myArticleIds') || '[]');
+      if (ids.length === 0) {
+        myArticles = [];
+        return;
+      }
+      const results = await Promise.all(
+        ids.map(id => articleApi.getArticleById(id).catch(() => null))
+      );
+      myArticles = results
+        .filter(Boolean)
+        .map(r => r.data || r);
+    } catch (err) {
+      console.error('加载我的文章失败:', err);
+    } finally {
+      articlesLoading = false;
+    }
+  };
+
+  const deleteArticle = async (id) => {
+    if (!confirm('确定要删除这篇文章吗？此操作不可恢复。')) return;
+    deletingId = id;
+    try {
+      await articleApi.deleteArticle(id);
+      const ids = JSON.parse(localStorage.getItem('myArticleIds') || '[]');
+      localStorage.setItem('myArticleIds', JSON.stringify(ids.filter(i => i !== id)));
+      myArticles = myArticles.filter(a => a.id !== id);
+    } catch (err) {
+      alert(err.response?.data?.message || '删除失败，请稍后重试');
+    } finally {
+      deletingId = null;
+    }
+  };
+
+  const publishArticle = async (article) => {
+    publishingId = article.id;
+    try {
+      const res = await articleApi.updateArticle(article.id, { isDraft: false });
+      const updated = res.data || res;
+      myArticles = myArticles.map(a => a.id === article.id ? updated : a);
+    } catch (err) {
+      alert(err.response?.data?.message || '发布失败，请稍后重试');
+    } finally {
+      publishingId = null;
+    }
+  };
+
   onMount(() => {
     loadUserData();
+    loadMyArticles();
   });
 </script>
 
@@ -158,6 +215,69 @@
           </div>
         {/each}
       </div>
+    </div>
+  </section>
+
+  <!-- 我的文章 -->
+  <section class="my-articles-section">
+    <div class="container">
+      <div class="section-title-row">
+        <h2>📝 我的文章</h2>
+        <a href="/write" use:link class="btn btn-primary">+ 写文章</a>
+      </div>
+
+      {#if articlesLoading}
+        <div class="articles-loading">加载中...</div>
+      {:else if myArticles.length === 0}
+        <div class="articles-empty">
+          <p>还没有发布任何文章</p>
+          <a href="/write" use:link class="btn btn-primary">去写第一篇文章</a>
+        </div>
+      {:else}
+        <div class="articles-list">
+          {#each myArticles as article (article.id)}
+            <div class="article-row">
+              <div class="article-status">
+                <span class="status-tag" class:draft={article.is_draft}>
+                  {article.is_draft ? '草稿' : '已发布'}
+                </span>
+              </div>
+              <div class="article-info">
+                <a href={`/article/${article.id}`} use:link class="article-title">{article.title}</a>
+                <div class="article-meta">
+                  <span>📅 {article.date}</span>
+                  <span>👁️ {article.views || 0} 次浏览</span>
+                  <span>📁 {article.category || '未分类'}</span>
+                </div>
+              </div>
+              <div class="article-actions">
+                {#if article.is_draft}
+                  <button
+                    class="action-btn publish-btn"
+                    disabled={publishingId === article.id}
+                    on:click={() => publishArticle(article)}
+                  >
+                    {publishingId === article.id ? '发布中...' : '🚀 发布'}
+                  </button>
+                {/if}
+                <button
+                  class="action-btn edit-btn"
+                  on:click={() => push(`/write/${article.id}`)}
+                >
+                  ✏️ 编辑
+                </button>
+                <button
+                  class="action-btn delete-btn"
+                  disabled={deletingId === article.id}
+                  on:click={() => deleteArticle(article.id)}
+                >
+                  {deletingId === article.id ? '删除中...' : '🗑️ 删除'}
+                </button>
+              </div>
+            </div>
+          {/each}
+        </div>
+      {/if}
     </div>
   </section>
 
@@ -400,6 +520,160 @@
 
   .stat-label {
     opacity: 0.9;
+  }
+
+  /* 我的文章 */
+  .my-articles-section {
+    background: white;
+  }
+
+  .section-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+  }
+
+  .section-title-row h2 {
+    font-size: 2.5rem;
+    color: #2d3748;
+    margin: 0;
+  }
+
+  .articles-loading,
+  .articles-empty {
+    text-align: center;
+    padding: 3rem;
+    color: #718096;
+    background: #f7fafc;
+    border-radius: 12px;
+  }
+
+  .articles-empty p {
+    margin-bottom: 1.5rem;
+    font-size: 1.1rem;
+  }
+
+  .articles-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .article-row {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.25rem 1.5rem;
+    background: #f7fafc;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    transition: box-shadow 0.2s ease;
+  }
+
+  .article-row:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .status-tag {
+    display: inline-block;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+  }
+
+  .status-tag.draft {
+    background: #e2e8f0;
+    color: #718096;
+  }
+
+  .article-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .article-title {
+    display: block;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #2d3748;
+    text-decoration: none;
+    margin-bottom: 0.4rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color 0.2s ease;
+  }
+
+  .article-title:hover {
+    color: #667eea;
+  }
+
+  .article-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: #a0aec0;
+    flex-wrap: wrap;
+  }
+
+  .article-actions {
+    display: flex;
+    gap: 0.6rem;
+    flex-shrink: 0;
+  }
+
+  .action-btn {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+
+  .action-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .publish-btn {
+    background: #ebf8ff;
+    color: #3182ce;
+    border: 1px solid #bee3f8;
+  }
+
+  .publish-btn:hover:not(:disabled) {
+    background: #3182ce;
+    color: white;
+  }
+
+  .edit-btn {
+    background: #f0fff4;
+    color: #38a169;
+    border: 1px solid #c6f6d5;
+  }
+
+  .edit-btn:hover:not(:disabled) {
+    background: #38a169;
+    color: white;
+  }
+
+  .delete-btn {
+    background: #fff5f5;
+    color: #e53e3e;
+    border: 1px solid #fed7d7;
+  }
+
+  .delete-btn:hover:not(:disabled) {
+    background: #e53e3e;
+    color: white;
   }
 
   /* 技能展示 */
@@ -730,6 +1004,27 @@
 
     .timeline-marker {
       left: 0;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .article-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    .article-actions {
+      width: 100%;
+    }
+
+    .action-btn {
+      flex: 1;
+      text-align: center;
+    }
+
+    .section-title-row h2 {
+      font-size: 1.8rem;
     }
   }
 

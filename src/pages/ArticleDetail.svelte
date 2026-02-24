@@ -3,7 +3,7 @@
   import { link } from 'svelte-spa-router';
   import Loading from '../components/Loading.svelte';
   import ErrorMessage from '../components/ErrorMessage.svelte';
-  import { articleApi, commentApi, followApi } from '../services/api.js';
+  import { articleApi, commentApi, followApi, likeApi, bookmarkApi } from '../services/api.js';
 
   export let params = {};
 
@@ -19,6 +19,16 @@
   let following = false;
   let followLoading = false;
   let followCount = 0;
+
+  // 点赞状态
+  let liked = false;
+  let likeLoading = false;
+  let likeCount = 0;
+
+  // 收藏状态
+  let bookmarked = false;
+  let bookmarkLoading = false;
+  let bookmarkCount = 0;
 
   // 加载文章数据
   const loadArticle = async () => {
@@ -44,7 +54,22 @@
             following = res.isFollowing ?? false;
             followCount = res.followCount ?? 0;
           })
-          .catch(() => {}); // 关注状态加载失败不影响文章显示
+          .catch(() => {});
+
+        // 加载点赞和收藏状态
+        likeApi.getLikeStatus(articleId)
+          .then(res => {
+            liked = res.isLiked ?? false;
+            likeCount = res.likeCount ?? 0;
+          })
+          .catch(() => {});
+
+        bookmarkApi.getBookmarkStatus(articleId)
+          .then(res => {
+            bookmarked = res.isBookmarked ?? false;
+            bookmarkCount = res.bookmarkCount ?? 0;
+          })
+          .catch(() => {});
       }
 
       // 加载相关文章（基于分类）
@@ -83,6 +108,48 @@
       alert(err.response?.data?.message || '操作失败，请稍后重试');
     } finally {
       followLoading = false;
+    }
+  };
+
+  // 点赞 / 取消点赞
+  const handleLike = async () => {
+    likeLoading = true;
+    try {
+      if (liked) {
+        const res = await likeApi.unlikeArticle(params.id);
+        liked = false;
+        likeCount = res.likeCount ?? likeCount;
+      } else {
+        const res = await likeApi.likeArticle(params.id);
+        liked = true;
+        likeCount = res.likeCount ?? likeCount;
+      }
+    } catch (err) {
+      console.error('点赞操作失败:', err);
+      alert(err.response?.data?.message || '操作失败，请稍后重试');
+    } finally {
+      likeLoading = false;
+    }
+  };
+
+  // 收藏 / 取消收藏
+  const handleBookmark = async () => {
+    bookmarkLoading = true;
+    try {
+      if (bookmarked) {
+        const res = await bookmarkApi.unbookmarkArticle(params.id);
+        bookmarked = false;
+        bookmarkCount = res.bookmarkCount ?? bookmarkCount;
+      } else {
+        const res = await bookmarkApi.bookmarkArticle(params.id);
+        bookmarked = true;
+        bookmarkCount = res.bookmarkCount ?? bookmarkCount;
+      }
+    } catch (err) {
+      console.error('收藏操作失败:', err);
+      alert(err.response?.data?.message || '操作失败，请稍后重试');
+    } finally {
+      bookmarkLoading = false;
     }
   };
 
@@ -180,11 +247,33 @@
           {/each}
         </div>
 
-        <!-- 分享按钮 -->
+        <!-- 操作按钮 -->
         <div class="article-actions">
-          <button class="action-btn like-btn">❤️ 点赞 (42)</button>
+          <button
+            class="action-btn like-btn"
+            class:liked
+            disabled={likeLoading}
+            on:click={handleLike}
+          >
+            {#if likeLoading}
+              处理中...
+            {:else}
+              {liked ? '❤️' : '🤍'} 点赞{likeCount > 0 ? ` (${likeCount})` : ''}
+            {/if}
+          </button>
           <button class="action-btn share-btn">🔗 分享</button>
-          <button class="action-btn bookmark-btn">🔖 收藏</button>
+          <button
+            class="action-btn bookmark-btn"
+            class:bookmarked
+            disabled={bookmarkLoading}
+            on:click={handleBookmark}
+          >
+            {#if bookmarkLoading}
+              处理中...
+            {:else}
+              🔖 {bookmarked ? '已收藏' : '收藏'}{bookmarkCount > 0 ? ` (${bookmarkCount})` : ''}
+            {/if}
+          </button>
         </div>
 
         <!-- 评论区 -->
@@ -456,6 +545,12 @@
     color: #ff6b6b;
   }
 
+  .like-btn.liked {
+    border-color: #ff6b6b;
+    color: #ff6b6b;
+    background: #fff5f5;
+  }
+
   .share-btn:hover {
     border-color: #667eea;
     color: #667eea;
@@ -464,6 +559,18 @@
   .bookmark-btn:hover {
     border-color: #f59e0b;
     color: #f59e0b;
+  }
+
+  .bookmark-btn.bookmarked {
+    border-color: #f59e0b;
+    color: #f59e0b;
+    background: #fffbeb;
+  }
+
+  .action-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
   }
 
   /* 评论区 */

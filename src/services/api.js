@@ -136,6 +136,60 @@ export const followApi = {
 };
 
 /**
+ * 点赞相关 API
+ */
+export const likeApi = {
+  // 查询点赞状态和总数
+  getLikeStatus: (articleId) => {
+    return request({
+      method: 'GET',
+      url: API_ENDPOINTS.ARTICLE_LIKE(articleId)
+    });
+  },
+  // 点赞
+  likeArticle: (articleId) => {
+    return request({
+      method: 'POST',
+      url: API_ENDPOINTS.ARTICLE_LIKE(articleId)
+    });
+  },
+  // 取消点赞
+  unlikeArticle: (articleId) => {
+    return request({
+      method: 'DELETE',
+      url: API_ENDPOINTS.ARTICLE_LIKE(articleId)
+    });
+  }
+};
+
+/**
+ * 收藏相关 API
+ */
+export const bookmarkApi = {
+  // 查询收藏状态和总数
+  getBookmarkStatus: (articleId) => {
+    return request({
+      method: 'GET',
+      url: API_ENDPOINTS.ARTICLE_BOOKMARK(articleId)
+    });
+  },
+  // 收藏
+  bookmarkArticle: (articleId) => {
+    return request({
+      method: 'POST',
+      url: API_ENDPOINTS.ARTICLE_BOOKMARK(articleId)
+    });
+  },
+  // 取消收藏
+  unbookmarkArticle: (articleId) => {
+    return request({
+      method: 'DELETE',
+      url: API_ENDPOINTS.ARTICLE_BOOKMARK(articleId)
+    });
+  }
+};
+
+/**
  * 订阅相关 API
  */
 export const subscribeApi = {

@@ -42,4 +42,10 @@ export const API_ENDPOINTS = {
   // 关注相关
   FOLLOW_AUTHOR: (authorId) => `/authors/${authorId}/follow`,
   UNFOLLOW_AUTHOR: (authorId) => `/authors/${authorId}/follow`,
+
+  // 点赞相关
+  ARTICLE_LIKE: (id) => `/articles/${id}/like`,
+
+  // 收藏相关
+  ARTICLE_BOOKMARK: (id) => `/articles/${id}/bookmark`,
 };

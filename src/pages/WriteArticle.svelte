@@ -3,6 +3,8 @@
   import { push } from 'svelte-spa-router';
   import { articleApi, categoryApi } from '../services/api.js';
 
+  export let params = {};
+
   let article = {
     title: '',
     category: 'frontend',
@@ -16,6 +18,9 @@
   let saving = false;
   let categories = [];
   let loadingCategories = true;
+  let loadingArticle = false;
+
+  $: editMode = !!params.id;
 
   // 加载分类列表
   const loadCategories = async () => {
@@ -24,14 +29,11 @@
       const response = await categoryApi.getCategories();
       const categoriesData = response.data || response;
       categories = categoriesData;
-
-      // 设置默认分类
-      if (categories.length > 0 && !article.category) {
+      if (categories.length > 0 && !editMode) {
         article.category = categories[0].id;
       }
     } catch (err) {
       console.error('加载分类失败:', err);
-      // 使用默认分类
       categories = [
         { id: 'frontend', name: '前端开发' },
         { id: 'web3', name: 'Web3' },
@@ -43,8 +45,30 @@
     }
   };
 
+  // 编辑模式：加载已有文章数据
+  const loadArticleForEdit = async () => {
+    loadingArticle = true;
+    try {
+      const res = await articleApi.getArticleById(params.id);
+      const data = res.data || res;
+      article = {
+        title: data.title || '',
+        category: data.category_id || data.category || 'frontend',
+        tags: Array.isArray(data.tags) ? data.tags.join(', ') : (data.tags || ''),
+        image: data.image || '',
+        excerpt: data.excerpt || '',
+        content: data.content || ''
+      };
+    } catch (err) {
+      console.error('加载文章失败:', err);
+      alert('加载文章失败，返回我的博客');
+      push('/myblog');
+    } finally {
+      loadingArticle = false;
+    }
+  };
+
   const handleSubmit = async (isDraft = false) => {
-    // 验证表单
     if (!article.title.trim()) {
       alert('请输入文章标题');
       return;
@@ -56,28 +80,34 @@
 
     saving = true;
     try {
-      // 准备提交数据
       const articleData = {
         ...article,
         isDraft,
         tags: article.tags.split(',').map(tag => tag.trim()).filter(Boolean),
         categoryId: article.category,
-        author: '当前用户', // 实际应用中应从用户信息获取
+        author: '当前用户',
         date: new Date().toISOString().split('T')[0]
       };
 
-      // 调用 API 创建文章
-      const response = await articleApi.createArticle(articleData);
-
-      console.log('文章创建成功:', response);
-      alert(isDraft ? '草稿已保存！' : '文章已发布！');
-
-      if (!isDraft) {
-        // 发布成功后跳转到文章列表
-        push('/articles');
+      if (editMode) {
+        // 更新文章
+        await articleApi.updateArticle(params.id, articleData);
+        alert(isDraft ? '草稿已保存！' : '文章已更新并发布！');
+        push('/myblog');
       } else {
-        // 保存草稿后清空表单或保留（根据需求）
-        // article = { title: '', category: categories[0]?.id || 'frontend', tags: '', image: '', excerpt: '', content: '' };
+        // 创建文章
+        const response = await articleApi.createArticle(articleData);
+        const created = response.data || response;
+
+        // 将新文章 id 存入 localStorage，用于"我的文章"列表
+        const ids = JSON.parse(localStorage.getItem('myArticleIds') || '[]');
+        ids.unshift(created.id);
+        localStorage.setItem('myArticleIds', JSON.stringify(ids));
+
+        alert(isDraft ? '草稿已保存！' : '文章已发布！');
+        if (!isDraft) {
+          push('/articles');
+        }
       }
     } catch (err) {
       console.error('保存文章失败:', err);
@@ -87,9 +117,17 @@
     }
   };
 
-  onMount(() => {
-    loadCategories();
+  onMount(async () => {
+    await loadCategories();
+    if (params.id) {
+      loadArticleForEdit();
+    }
   });
+
+  // 路由参数变化时重新加载（从创建页跳到编辑页等场景）
+  $: if (params.id) {
+    loadArticleForEdit();
+  }
 
   const togglePreview = () => {
     showPreview = !showPreview;
@@ -148,8 +186,13 @@
 <div class="write-article-page">
   <div class="container">
     <div class="page-header">
-      <h1>✍️ 写文章</h1>
+      <h1>{editMode ? '✏️ 编辑文章' : '✍️ 写文章'}</h1>
       <div class="header-actions">
+        {#if editMode}
+          <button class="btn btn-secondary" on:click={() => push('/myblog')} disabled={saving}>
+            ← 返回
+          </button>
+        {/if}
         <button class="btn btn-secondary" on:click={togglePreview} disabled={saving}>
           {showPreview ? '📝 编辑' : '👁️ 预览'}
         </button>
@@ -157,10 +200,14 @@
           {saving ? '保存中...' : '💾 保存草稿'}
         </button>
         <button class="btn btn-primary" on:click={() => handleSubmit(false)} disabled={saving}>
-          {saving ? '发布中...' : '🚀 发布文章'}
+          {saving ? '发布中...' : (editMode ? '🚀 更新发布' : '🚀 发布文章')}
         </button>
       </div>
     </div>
+
+    {#if loadingArticle}
+      <div class="loading-overlay">加载文章数据中...</div>
+    {/if}
 
     {#if !showPreview}
       <!-- 编辑模式 -->
@@ -613,6 +660,16 @@
     text-align: center;
     color: #a0aec0;
     padding: 3rem;
+  }
+
+  .loading-overlay {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    text-align: center;
+    color: #718096;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 2rem;
   }
 
   /* 按钮 */

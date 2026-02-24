@@ -24,6 +24,7 @@
     '/popular': Popular,
     '/myblog': MyBlog,
     '/write': WriteArticle,
+    '/write/:id': WriteArticle,
   };
 </script>
 
