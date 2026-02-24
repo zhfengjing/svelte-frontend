@@ -1,68 +1,13 @@
 <script>
+  import { onMount } from 'svelte';
   import ArticleCard from '../components/ArticleCard.svelte';
+  import Loading from '../components/Loading.svelte';
+  import ErrorMessage from '../components/ErrorMessage.svelte';
+  import { articleApi } from '../services/api.js';
 
-  const popularArticles = [
-    {
-      id: 5,
-      title: 'React vs Vue vs Svelte：2024框架对比',
-      excerpt: '深入比较三大前端框架的优缺点，帮助你选择最适合项目的技术栈。',
-      image: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=250&fit=crop',
-      author: '张三',
-      date: '2024-02-10',
-      views: '1.5k',
-      category: '前端开发'
-    },
-    {
-      id: 1,
-      title: 'Svelte 完整指南：从入门到精通',
-      excerpt: '深入学习 Svelte 框架，掌握现代前端开发技术。本文将带你了解 Svelte 的核心概念和最佳实践。',
-      image: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=400&h=250&fit=crop',
-      author: '张三',
-      date: '2024-02-20',
-      views: '1.2k',
-      category: '前端开发'
-    },
-    {
-      id: 7,
-      title: 'Python 数据分析完整教程',
-      excerpt: '使用 Python 进行数据分析，掌握 Pandas、NumPy 和 Matplotlib。',
-      image: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400&h=250&fit=crop',
-      author: '王五',
-      date: '2024-02-05',
-      views: '1.1k',
-      category: '编程语言'
-    },
-    {
-      id: 2,
-      title: 'Web3 开发入门：构建去中心化应用',
-      excerpt: '探索区块链技术和 Web3 生态系统，学习如何构建去中心化应用程序。',
-      image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=400&h=250&fit=crop',
-      author: '李四',
-      date: '2024-02-18',
-      views: '980',
-      category: 'Web3'
-    },
-    {
-      id: 9,
-      title: '前端性能优化完全指南',
-      excerpt: '学习如何优化网站性能，提升用户体验和搜索引擎排名。',
-      image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=250&fit=crop',
-      author: '张三',
-      date: '2024-02-01',
-      views: '945',
-      category: '前端开发'
-    },
-    {
-      id: 6,
-      title: '智能合约开发实战教程',
-      excerpt: '从零开始学习 Solidity，编写并部署你的第一个智能合约。',
-      image: 'https://images.unsplash.com/photo-1621416894569-0f39ed31d247?w=400&h=250&fit=crop',
-      author: '李四',
-      date: '2024-02-08',
-      views: '892',
-      category: 'Web3'
-    }
-  ];
+  let popularArticles = [];
+  let loading = true;
+  let error = null;
 
   const timeRanges = [
     { id: 'today', label: '今日热门', icon: '🔥' },
@@ -72,6 +17,32 @@
   ];
 
   let selectedRange = 'week';
+
+  // 加载热门文章
+  const loadPopularArticles = async (timeRange = 'week') => {
+    loading = true;
+    error = null;
+
+    try {
+      const response = await articleApi.getPopularArticles({
+        timeRange: timeRange
+      });
+      popularArticles = response.data || response;
+    } catch (err) {
+      console.error('加载热门文章失败:', err);
+      error = err.response?.data?.message || '加载热门文章失败，请稍后重试';
+      popularArticles = [];
+    } finally {
+      loading = false;
+    }
+  };
+
+  // 当时间范围改变时重新加载
+  $: loadPopularArticles(selectedRange);
+
+  onMount(() => {
+    loadPopularArticles(selectedRange);
+  });
 </script>
 
 <div class="popular-page">
@@ -104,24 +75,34 @@
         <p>根据浏览量、点赞和分享综合排名</p>
       </div>
 
-      <div class="ranking-grid">
-        {#each popularArticles as article, index}
-          <div class="ranking-item">
-            <div class="rank-number" class:top-three={index < 3}>
-              {#if index === 0}
-                🥇
-              {:else if index === 1}
-                🥈
-              {:else if index === 2}
-                🥉
-              {:else}
-                {index + 1}
-              {/if}
+      {#if loading}
+        <Loading message="加载热门文章中..." size="large" />
+      {:else if error}
+        <ErrorMessage message={error} onRetry={() => loadPopularArticles(selectedRange)} />
+      {:else if popularArticles.length > 0}
+        <div class="ranking-grid">
+          {#each popularArticles as article, index}
+            <div class="ranking-item">
+              <div class="rank-number" class:top-three={index < 3}>
+                {#if index === 0}
+                  🥇
+                {:else if index === 1}
+                  🥈
+                {:else if index === 2}
+                  🥉
+                {:else}
+                  {index + 1}
+                {/if}
+              </div>
+              <ArticleCard {article} featured={index < 3} />
             </div>
-            <ArticleCard {article} featured={index < 3} />
-          </div>
-        {/each}
-      </div>
+          {/each}
+        </div>
+      {:else}
+        <div class="empty-state">
+          <p>暂无热门文章</p>
+        </div>
+      {/if}
     </div>
 
     <!-- 趋势统计 -->

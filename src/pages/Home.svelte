@@ -1,47 +1,50 @@
 <script>
+  import { onMount } from 'svelte';
   import { link } from 'svelte-spa-router';
   import ArticleCard from '../components/ArticleCard.svelte';
+  import Loading from '../components/Loading.svelte';
+  import ErrorMessage from '../components/ErrorMessage.svelte';
+  import { articleApi, userApi } from '../services/api.js';
 
-  // 模拟数据
-  const featuredArticles = [
-    {
-      id: 1,
-      title: 'Svelte 完整指南：从入门到精通',
-      excerpt: '深入学习 Svelte 框架，掌握现代前端开发技术。本文将带你了解 Svelte 的核心概念和最佳实践。',
-      image: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=400&h=250&fit=crop',
-      author: '张三',
-      date: '2024-02-20',
-      views: '1.2k',
-      category: '前端开发'
-    },
-    {
-      id: 2,
-      title: 'Web3 开发入门：构建去中心化应用',
-      excerpt: '探索区块链技术和 Web3 生态系统，学习如何构建去中心化应用程序。',
-      image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=400&h=250&fit=crop',
-      author: '李四',
-      date: '2024-02-18',
-      views: '980',
-      category: 'Web3'
-    },
-    {
-      id: 3,
-      title: 'TypeScript 高级技巧与最佳实践',
-      excerpt: '提升你的 TypeScript 技能，学习高级类型系统和设计模式。',
-      image: 'https://images.unsplash.com/photo-1516116216624-53e697fedbea?w=400&h=250&fit=crop',
-      author: '王五',
-      date: '2024-02-15',
-      views: '856',
-      category: '编程语言'
+  let featuredArticles = [];
+  let stats = [];
+  let loading = true;
+  let error = null;
+
+  // 加载数据
+  const loadData = async () => {
+    loading = true;
+    error = null;
+
+    try {
+      // 并行请求精选文章和统计数据
+      const [articlesData, statsData] = await Promise.all([
+        articleApi.getArticles({ featured: true, limit: 3 }),
+        userApi.getUserStats()
+      ]);
+
+      featuredArticles = articlesData.data || articlesData;
+      stats = statsData.data || statsData;
+    } catch (err) {
+      console.error('加载数据失败:', err);
+      error = err.response?.data?.message || '加载数据失败，请稍后重试';
+
+      // 使用默认数据作为后备
+      featuredArticles = [];
+      stats = [
+        { icon: '📝', number: '120+', label: '文章总数' },
+        { icon: '👥', number: '5k+', label: '读者' },
+        { icon: '💬', number: '800+', label: '评论' },
+        { icon: '❤️', number: '3.2k', label: '点赞' }
+      ];
+    } finally {
+      loading = false;
     }
-  ];
+  };
 
-  const stats = [
-    { icon: '📝', number: '120+', label: '文章总数' },
-    { icon: '👥', number: '5k+', label: '读者' },
-    { icon: '💬', number: '800+', label: '评论' },
-    { icon: '❤️', number: '3.2k', label: '点赞' }
-  ];
+  onMount(() => {
+    loadData();
+  });
 </script>
 
 <div class="home">
@@ -91,17 +94,27 @@
         <p>精心挑选的优质内容</p>
       </div>
 
-      <div class="articles-grid">
-        {#each featuredArticles as article}
-          <ArticleCard {article} />
-        {/each}
-      </div>
+      {#if loading}
+        <Loading message="加载精选文章中..." />
+      {:else if error}
+        <ErrorMessage message={error} onRetry={loadData} />
+      {:else if featuredArticles.length > 0}
+        <div class="articles-grid">
+          {#each featuredArticles as article}
+            <ArticleCard {article} />
+          {/each}
+        </div>
 
-      <div class="view-more">
-        <a href="/articles" use:link class="btn btn-outline">
-          查看更多文章 →
-        </a>
-      </div>
+        <div class="view-more">
+          <a href="/articles" use:link class="btn btn-outline">
+            查看更多文章 →
+          </a>
+        </div>
+      {:else}
+        <div class="empty-state">
+          <p>暂无精选文章</p>
+        </div>
+      {/if}
     </div>
   </section>
 

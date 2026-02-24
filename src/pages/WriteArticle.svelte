@@ -1,5 +1,7 @@
 <script>
+  import { onMount } from 'svelte';
   import { push } from 'svelte-spa-router';
+  import { articleApi, categoryApi } from '../services/api.js';
 
   let article = {
     title: '',
@@ -11,16 +13,37 @@
   };
 
   let showPreview = false;
-  let saved = false;
+  let saving = false;
+  let categories = [];
+  let loadingCategories = true;
 
-  const categories = [
-    { id: 'frontend', name: '前端开发' },
-    { id: 'web3', name: 'Web3' },
-    { id: 'programming', name: '编程语言' },
-    { id: 'design', name: '设计' }
-  ];
+  // 加载分类列表
+  const loadCategories = async () => {
+    loadingCategories = true;
+    try {
+      const response = await categoryApi.getCategories();
+      const categoriesData = response.data || response;
+      categories = categoriesData;
 
-  const handleSubmit = (isDraft = false) => {
+      // 设置默认分类
+      if (categories.length > 0 && !article.category) {
+        article.category = categories[0].id;
+      }
+    } catch (err) {
+      console.error('加载分类失败:', err);
+      // 使用默认分类
+      categories = [
+        { id: 'frontend', name: '前端开发' },
+        { id: 'web3', name: 'Web3' },
+        { id: 'programming', name: '编程语言' },
+        { id: 'design', name: '设计' }
+      ];
+    } finally {
+      loadingCategories = false;
+    }
+  };
+
+  const handleSubmit = async (isDraft = false) => {
     // 验证表单
     if (!article.title.trim()) {
       alert('请输入文章标题');
@@ -31,17 +54,42 @@
       return;
     }
 
-    // 这里应该调用 API 保存文章
-    console.log('保存文章:', { ...article, isDraft });
+    saving = true;
+    try {
+      // 准备提交数据
+      const articleData = {
+        ...article,
+        isDraft,
+        tags: article.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+        categoryId: article.category,
+        author: '当前用户', // 实际应用中应从用户信息获取
+        date: new Date().toISOString().split('T')[0]
+      };
 
-    saved = true;
-    setTimeout(() => {
+      // 调用 API 创建文章
+      const response = await articleApi.createArticle(articleData);
+
+      console.log('文章创建成功:', response);
       alert(isDraft ? '草稿已保存！' : '文章已发布！');
+
       if (!isDraft) {
+        // 发布成功后跳转到文章列表
         push('/articles');
+      } else {
+        // 保存草稿后清空表单或保留（根据需求）
+        // article = { title: '', category: categories[0]?.id || 'frontend', tags: '', image: '', excerpt: '', content: '' };
       }
-    }, 500);
+    } catch (err) {
+      console.error('保存文章失败:', err);
+      alert(err.response?.data?.message || '保存文章失败，请稍后重试');
+    } finally {
+      saving = false;
+    }
   };
+
+  onMount(() => {
+    loadCategories();
+  });
 
   const togglePreview = () => {
     showPreview = !showPreview;
@@ -102,14 +150,14 @@
     <div class="page-header">
       <h1>✍️ 写文章</h1>
       <div class="header-actions">
-        <button class="btn btn-secondary" on:click={togglePreview}>
+        <button class="btn btn-secondary" on:click={togglePreview} disabled={saving}>
           {showPreview ? '📝 编辑' : '👁️ 预览'}
         </button>
-        <button class="btn btn-outline" on:click={() => handleSubmit(true)}>
-          💾 保存草稿
+        <button class="btn btn-outline" on:click={() => handleSubmit(true)} disabled={saving}>
+          {saving ? '保存中...' : '💾 保存草稿'}
         </button>
-        <button class="btn btn-primary" on:click={() => handleSubmit(false)}>
-          🚀 发布文章
+        <button class="btn btn-primary" on:click={() => handleSubmit(false)} disabled={saving}>
+          {saving ? '发布中...' : '🚀 发布文章'}
         </button>
       </div>
     </div>

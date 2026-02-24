@@ -1,80 +1,99 @@
 <script>
+  import { onMount } from 'svelte';
   import { link } from 'svelte-spa-router';
+  import Loading from '../components/Loading.svelte';
+  import ErrorMessage from '../components/ErrorMessage.svelte';
+  import { articleApi, commentApi } from '../services/api.js';
 
   export let params = {};
 
-  // 模拟文章数据
-  const article = {
-    id: params.id || 1,
-    title: 'Svelte 完整指南：从入门到精通',
-    author: '张三',
-    date: '2024-02-20',
-    views: '1.2k',
-    readTime: '8 分钟',
-    category: '前端开发',
-    image: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=1200&h=600&fit=crop',
-    content: `
-      <p>Svelte 是一个革命性的前端框架，它在构建时将你的代码编译成高效的 JavaScript，而不是在运行时解释代码。这使得 Svelte 应用具有出色的性能和更小的包体积。</p>
+  let article = null;
+  let relatedArticles = [];
+  let comments = [];
+  let comment = '';
+  let loading = true;
+  let error = null;
+  let submitting = false;
 
-      <h2>为什么选择 Svelte？</h2>
-      <p>Svelte 提供了许多独特的优势：</p>
-      <ul>
-        <li>无虚拟 DOM，直接操作真实 DOM，性能更优</li>
-        <li>更少的样板代码，开发效率更高</li>
-        <li>内置状态管理，无需额外的库</li>
-        <li>真正的响应式，无需手动优化</li>
-      </ul>
+  // 加载文章数据
+  const loadArticle = async () => {
+    loading = true;
+    error = null;
 
-      <h2>核心概念</h2>
-      <p>让我们深入了解 Svelte 的核心概念：</p>
+    try {
+      // 并行加载文章详情和评论
+      const articleId = params.id;
+      const [articleData, commentsData] = await Promise.all([
+        articleApi.getArticleById(articleId),
+        commentApi.getComments(articleId).catch(() => ({ data: [] })) // 评论加载失败不影响文章显示
+      ]);
 
-      <h3>1. 响应式声明</h3>
-      <p>Svelte 使用 <code>$:</code> 语法实现响应式声明，让数据变化自动触发更新。</p>
+      article = articleData.data || articleData;
+      comments = commentsData.data || commentsData;
 
-      <h3>2. 组件生命周期</h3>
-      <p>Svelte 提供了简洁的生命周期钩子，如 onMount、onDestroy 等。</p>
-
-      <h3>3. 内置动画</h3>
-      <p>Svelte 内置了强大的动画和过渡效果，让你的应用更加生动。</p>
-
-      <h2>最佳实践</h2>
-      <p>在使用 Svelte 开发时，请记住这些最佳实践：</p>
-      <ol>
-        <li>保持组件简单和专注</li>
-        <li>合理使用 stores 管理全局状态</li>
-        <li>充分利用 Svelte 的响应式特性</li>
-        <li>使用 SvelteKit 构建完整应用</li>
-      </ol>
-
-      <h2>总结</h2>
-      <p>Svelte 是一个强大而优雅的前端框架，它简化了开发流程，同时提供了卓越的性能。无论你是前端新手还是经验丰富的开发者，Svelte 都值得你尝试。</p>
-    `,
-    tags: ['Svelte', '前端开发', 'JavaScript', 'Web开发']
+      // 加载相关文章（基于分类）
+      if (article && article.categoryId) {
+        const relatedData = await articleApi.getArticles({
+          category: article.categoryId,
+          limit: 3,
+          exclude: articleId // 排除当前文章
+        }).catch(() => ({ data: [] }));
+        relatedArticles = relatedData.data || relatedData;
+      }
+    } catch (err) {
+      console.error('加载文章失败:', err);
+      error = err.response?.data?.message || '加载文章失败，请稍后重试';
+    } finally {
+      loading = false;
+    }
   };
 
-  const relatedArticles = [
-    { id: 2, title: 'Web3 开发入门：构建去中心化应用', views: '980' },
-    { id: 3, title: 'TypeScript 高级技巧与最佳实践', views: '856' },
-    { id: 5, title: 'React vs Vue vs Svelte：2024框架对比', views: '1.5k' }
-  ];
-
-  let comment = '';
-  const comments = [
-    {
-      id: 1,
-      author: '李四',
-      date: '2024-02-21',
-      content: '写得很好！我正在学习 Svelte，这篇文章帮助很大。'
-    },
-    {
-      id: 2,
-      author: '王五',
-      date: '2024-02-21',
-      content: '详细的教程，特别是最佳实践部分很有用。'
+  // 提交评论
+  const handleSubmitComment = async () => {
+    if (!comment.trim()) {
+      alert('请输入评论内容');
+      return;
     }
-  ];
+
+    submitting = true;
+    try {
+      const newComment = await commentApi.createComment(params.id, {
+        content: comment,
+        author: '匿名用户', // 实际应用中应该从用户信息中获取
+        date: new Date().toISOString().split('T')[0]
+      });
+
+      // 添加新评论到列表
+      comments = [newComment.data || newComment, ...comments];
+      comment = '';
+      alert('评论发表成功！');
+    } catch (err) {
+      console.error('发表评论失败:', err);
+      alert(err.response?.data?.message || '发表评论失败，请稍后重试');
+    } finally {
+      submitting = false;
+    }
+  };
+
+  onMount(() => {
+    loadArticle();
+  });
+
+  // 当路由参数变化时重新加载
+  $: if (params.id) {
+    loadArticle();
+  }
 </script>
 
+{#if loading}
+  <div class="article-detail">
+    <Loading message="加载文章中..." size="large" />
+  </div>
+{:else if error}
+  <div class="article-detail">
+    <ErrorMessage message={error} onRetry={loadArticle} />
+  </div>
+{:else if article}
 <article class="article-detail">
   <!-- 文章头部 -->
   <div class="article-header">
@@ -84,7 +103,7 @@
         <span>›</span>
         <a href="/articles" use:link>文章列表</a>
         <span>›</span>
-        <span>{article.title}</span>
+        <span>{article.title || '文章详情'}</span>
       </div>
 
       <h1 class="article-title">{article.title}</h1>
@@ -93,16 +112,20 @@
         <span class="meta-item">✍️ {article.author}</span>
         <span class="meta-item">📅 {article.date}</span>
         <span class="meta-item">👁️ {article.views}</span>
-        <span class="meta-item">⏱️ {article.readTime}</span>
+        {#if article.readTime}
+          <span class="meta-item">⏱️ {article.readTime}</span>
+        {/if}
         <span class="category-badge">{article.category}</span>
       </div>
     </div>
   </div>
 
   <!-- 文章封面 -->
-  <div class="article-cover">
-    <img src={article.image} alt={article.title} />
-  </div>
+  {#if article.image}
+    <div class="article-cover">
+      <img src={article.image} alt={article.title} />
+    </div>
+  {/if}
 
   <div class="container">
     <div class="article-layout">
@@ -130,28 +153,35 @@
         <div class="comments-section">
           <h2>💬 评论 ({comments.length})</h2>
 
-          <form class="comment-form" on:submit|preventDefault>
+          <form class="comment-form" on:submit|preventDefault={handleSubmitComment}>
             <textarea
               bind:value={comment}
               placeholder="写下你的评论..."
               rows="4"
+              disabled={submitting}
             ></textarea>
-            <button type="submit" class="submit-btn">发表评论</button>
+            <button type="submit" class="submit-btn" disabled={submitting}>
+              {submitting ? '提交中...' : '发表评论'}
+            </button>
           </form>
 
           <div class="comments-list">
-            {#each comments as comment}
-              <div class="comment">
-                <div class="comment-avatar">👤</div>
-                <div class="comment-content">
-                  <div class="comment-header">
-                    <strong>{comment.author}</strong>
-                    <span class="comment-date">{comment.date}</span>
+            {#if comments.length > 0}
+              {#each comments as commentItem}
+                <div class="comment">
+                  <div class="comment-avatar">👤</div>
+                  <div class="comment-content">
+                    <div class="comment-header">
+                      <strong>{commentItem.author}</strong>
+                      <span class="comment-date">{commentItem.date}</span>
+                    </div>
+                    <p>{commentItem.content}</p>
                   </div>
-                  <p>{comment.content}</p>
                 </div>
-              </div>
-            {/each}
+              {/each}
+            {:else}
+              <p class="no-comments">暂无评论，快来发表第一条评论吧！</p>
+            {/if}
           </div>
         </div>
       </div>
@@ -195,6 +225,7 @@
     </div>
   </div>
 </article>
+{/if}
 
 <style>
   .article-detail {

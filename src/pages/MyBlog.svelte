@@ -1,61 +1,121 @@
 <script>
+  import { onMount } from 'svelte';
   import { link } from 'svelte-spa-router';
+  import Loading from '../components/Loading.svelte';
+  import ErrorMessage from '../components/ErrorMessage.svelte';
+  import { userApi } from '../services/api.js';
 
-  const skills = [
-    { name: 'JavaScript', level: 95, icon: '🟨' },
-    { name: 'Svelte', level: 90, icon: '🔶' },
-    { name: 'React', level: 85, icon: '⚛️' },
-    { name: 'TypeScript', level: 88, icon: '🔷' },
-    { name: 'Node.js', level: 82, icon: '🟩' },
-    { name: 'Web3', level: 75, icon: '⛓️' }
-  ];
+  let userProfile = null;
+  let skills = [];
+  let timeline = [];
+  let projects = [];
+  let socialLinks = [];
+  let stats = [];
+  let loading = true;
+  let error = null;
 
-  const timeline = [
-    { year: '2024', title: '全栈开发工程师', company: '科技公司', description: '负责前端架构设计和技术分享' },
-    { year: '2023', title: '高级前端工程师', company: '互联网公司', description: '主导多个大型项目的前端开发' },
-    { year: '2022', title: '前端工程师', company: '创业公司', description: '参与产品从0到1的建设' },
-    { year: '2021', title: '开始博客写作', company: '个人', description: '分享技术心得和学习笔记' }
-  ];
+  // 默认数据（作为后备）
+  const defaultData = {
+    skills: [
+      { name: 'JavaScript', level: 95, icon: '🟨' },
+      { name: 'Svelte', level: 90, icon: '🔶' },
+      { name: 'React', level: 85, icon: '⚛️' },
+      { name: 'TypeScript', level: 88, icon: '🔷' },
+      { name: 'Node.js', level: 82, icon: '🟩' },
+      { name: 'Web3', level: 75, icon: '⛓️' }
+    ],
+    timeline: [
+      { year: '2024', title: '全栈开发工程师', company: '科技公司', description: '负责前端架构设计和技术分享' },
+      { year: '2023', title: '高级前端工程师', company: '互联网公司', description: '主导多个大型项目的前端开发' },
+      { year: '2022', title: '前端工程师', company: '创业公司', description: '参与产品从0到1的建设' },
+      { year: '2021', title: '开始博客写作', company: '个人', description: '分享技术心得和学习笔记' }
+    ],
+    projects: [
+      {
+        name: 'Web3 钱包应用',
+        description: '基于 Svelte 开发的去中心化钱包',
+        tech: ['Svelte', 'Web3.js', 'Ethers.js'],
+        link: '#',
+        image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=400&h=250&fit=crop'
+      },
+      {
+        name: '博客管理系统',
+        description: '全栈博客平台，支持 Markdown',
+        tech: ['React', 'Node.js', 'MongoDB'],
+        link: '#',
+        image: 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=400&h=250&fit=crop'
+      },
+      {
+        name: '数据可视化平台',
+        description: '企业级数据分析和可视化工具',
+        tech: ['Vue', 'D3.js', 'Python'],
+        link: '#',
+        image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=250&fit=crop'
+      }
+    ],
+    socialLinks: [
+      { name: 'GitHub', icon: '🐙', url: 'https://github.com' },
+      { name: 'Twitter', icon: '🐦', url: 'https://twitter.com' },
+      { name: 'LinkedIn', icon: '💼', url: 'https://linkedin.com' },
+      { name: 'Email', icon: '📧', url: 'mailto:blog@example.com' }
+    ],
+    stats: [
+      { label: '文章', value: '120+', icon: '📝' },
+      { label: '粉丝', value: '5.2k', icon: '👥' },
+      { label: '点赞', value: '12k', icon: '❤️' },
+      { label: '浏览', value: '50k+', icon: '👁️' }
+    ]
+  };
 
-  const projects = [
-    {
-      name: 'Web3 钱包应用',
-      description: '基于 Svelte 开发的去中心化钱包',
-      tech: ['Svelte', 'Web3.js', 'Ethers.js'],
-      link: '#',
-      image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=400&h=250&fit=crop'
-    },
-    {
-      name: '博客管理系统',
-      description: '全栈博客平台，支持 Markdown',
-      tech: ['React', 'Node.js', 'MongoDB'],
-      link: '#',
-      image: 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=400&h=250&fit=crop'
-    },
-    {
-      name: '数据可视化平台',
-      description: '企业级数据分析和可视化工具',
-      tech: ['Vue', 'D3.js', 'Python'],
-      link: '#',
-      image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=250&fit=crop'
+  // 加载用户数据
+  const loadUserData = async () => {
+    loading = true;
+    error = null;
+
+    try {
+      const profileData = await userApi.getUserProfile();
+      const profileResult = profileData.data || profileData;
+
+      userProfile = profileResult;
+      skills = profileResult.skills || defaultData.skills;
+      timeline = profileResult.timeline || defaultData.timeline;
+      projects = profileResult.projects || defaultData.projects;
+      socialLinks = profileResult.socialLinks || defaultData.socialLinks;
+      stats = profileResult.stats || defaultData.stats;
+    } catch (err) {
+      console.error('加载用户数据失败:', err);
+      error = err.response?.data?.message || '加载用户数据失败，使用默认数据';
+
+      // 使用默认数据
+      skills = defaultData.skills;
+      timeline = defaultData.timeline;
+      projects = defaultData.projects;
+      socialLinks = defaultData.socialLinks;
+      stats = defaultData.stats;
+      userProfile = {
+        name: '张三',
+        title: '全栈开发工程师 | 技术博主',
+        bio: '热爱编程，专注于前端开发和 Web3 技术。通过博客分享技术见解，帮助更多人学习和成长。相信技术可以改变世界 🚀'
+      };
+    } finally {
+      loading = false;
     }
-  ];
+  };
 
-  const socialLinks = [
-    { name: 'GitHub', icon: '🐙', url: 'https://github.com' },
-    { name: 'Twitter', icon: '🐦', url: 'https://twitter.com' },
-    { name: 'LinkedIn', icon: '💼', url: 'https://linkedin.com' },
-    { name: 'Email', icon: '📧', url: 'mailto:blog@example.com' }
-  ];
-
-  const stats = [
-    { label: '文章', value: '120+', icon: '📝' },
-    { label: '粉丝', value: '5.2k', icon: '👥' },
-    { label: '点赞', value: '12k', icon: '❤️' },
-    { label: '浏览', value: '50k+', icon: '👁️' }
-  ];
+  onMount(() => {
+    loadUserData();
+  });
 </script>
 
+{#if loading}
+  <div class="myblog-page">
+    <Loading message="加载个人信息中..." size="large" />
+  </div>
+{:else if error && !userProfile}
+  <div class="myblog-page">
+    <ErrorMessage message={error} onRetry={loadUserData} />
+  </div>
+{:else}
 <div class="myblog-page">
   <!-- 个人简介区 -->
   <section class="profile-hero">
@@ -67,12 +127,10 @@
         </div>
 
         <div class="profile-info">
-          <h1>张三</h1>
-          <p class="title">全栈开发工程师 | 技术博主</p>
+          <h1>{userProfile?.name || '张三'}</h1>
+          <p class="title">{userProfile?.title || '全栈开发工程师 | 技术博主'}</p>
           <p class="bio">
-            热爱编程，专注于前端开发和 Web3 技术。
-            通过博客分享技术见解，帮助更多人学习和成长。
-            相信技术可以改变世界 🚀
+            {userProfile?.bio || '热爱编程，专注于前端开发和 Web3 技术。通过博客分享技术见解，帮助更多人学习和成长。相信技术可以改变世界 🚀'}
           </p>
 
           <div class="social-links">
@@ -186,6 +244,7 @@
     </div>
   </section>
 </div>
+{/if}
 
 <style>
   .myblog-page {
