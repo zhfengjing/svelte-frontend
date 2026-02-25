@@ -204,6 +204,28 @@ export const subscribeApi = {
 };
 
 /**
+ * 职业历程相关 API
+ */
+export const timelineApi = {
+  // 获取职业历程列表
+  getTimeline: () => {
+    return request({ method: 'GET', url: API_ENDPOINTS.TIMELINE });
+  },
+  // 新增职业经历
+  addItem: (data) => {
+    return request({ method: 'POST', url: API_ENDPOINTS.TIMELINE, data });
+  },
+  // 更新职业经历
+  updateItem: (id, data) => {
+    return request({ method: 'PUT', url: API_ENDPOINTS.TIMELINE_ITEM(id), data });
+  },
+  // 删除职业经历
+  deleteItem: (id) => {
+    return request({ method: 'DELETE', url: API_ENDPOINTS.TIMELINE_ITEM(id) });
+  },
+};
+
+/**
  * 用户相关 API
  */
 export const userApi = {

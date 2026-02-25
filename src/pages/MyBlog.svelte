@@ -3,7 +3,7 @@
   import { link, push } from 'svelte-spa-router';
   import Loading from '../components/Loading.svelte';
   import ErrorMessage from '../components/ErrorMessage.svelte';
-  import { userApi, articleApi } from '../services/api.js';
+  import { userApi, articleApi, timelineApi } from '../services/api.js';
 
   let userProfile = null;
   let skills = [];
@@ -19,6 +19,66 @@
   let articlesLoading = false;
   let deletingId = null;
   let publishingId = null;
+
+  // 职业历程 CRUD
+  let showTimelineModal = false;
+  let editingTimelineId = null; // null = 新增，string = 编辑已有条目的 id
+  let timelineForm = { year: '', title: '', company: '', description: '' };
+  let timelineFormError = '';
+  let timelineSaving = false;
+
+  function openAddTimeline() {
+    timelineForm = { year: '', title: '', company: '', description: '' };
+    editingTimelineId = null;
+    timelineFormError = '';
+    showTimelineModal = true;
+  }
+
+  function openEditTimeline(item) {
+    timelineForm = { year: item.year, title: item.title, company: item.company || '', description: item.description || '' };
+    editingTimelineId = item.id;
+    timelineFormError = '';
+    showTimelineModal = true;
+  }
+
+  function closeTimelineModal() {
+    showTimelineModal = false;
+  }
+
+  async function saveTimeline() {
+    if (!timelineForm.year.trim() || !timelineForm.title.trim()) {
+      timelineFormError = '年份和职位标题为必填项';
+      return;
+    }
+    timelineSaving = true;
+    timelineFormError = '';
+    try {
+      if (editingTimelineId === null) {
+        const res = await timelineApi.addItem({ ...timelineForm });
+        const newItem = res.data || res;
+        timeline = [newItem, ...timeline];
+      } else {
+        const res = await timelineApi.updateItem(editingTimelineId, { ...timelineForm });
+        const updatedItem = res.data || res;
+        timeline = timeline.map(t => t.id === editingTimelineId ? updatedItem : t);
+      }
+      showTimelineModal = false;
+    } catch (err) {
+      timelineFormError = err.response?.data?.message || '保存失败，请稍后重试';
+    } finally {
+      timelineSaving = false;
+    }
+  }
+
+  async function deleteTimelineItem(id) {
+    if (!confirm('确定要删除这条职业经历吗？')) return;
+    try {
+      await timelineApi.deleteItem(id);
+      timeline = timeline.filter(t => t.id !== id);
+    } catch (err) {
+      alert(err.response?.data?.message || '删除失败，请稍后重试');
+    }
+  }
 
   // 默认数据（作为后备）
   const defaultData = {
@@ -333,7 +393,10 @@
   <!-- 时间线 -->
   <section class="timeline-section">
     <div class="container">
-      <h2>📅 职业历程</h2>
+      <div class="section-title-row">
+        <h2>📅 职业历程</h2>
+        <button class="btn btn-timeline-add" on:click={openAddTimeline}>+ 添加经历</button>
+      </div>
       <div class="timeline">
         {#each timeline as item, index}
           <div class="timeline-item" class:left={index % 2 === 0} class:right={index % 2 !== 0}>
@@ -343,12 +406,58 @@
               <h3>{item.title}</h3>
               <p class="timeline-company">{item.company}</p>
               <p class="timeline-desc">{item.description}</p>
+              <div class="timeline-actions">
+                <button class="tl-btn tl-edit" on:click={() => openEditTimeline(item)}>✏️ 编辑</button>
+                <button class="tl-btn tl-delete" on:click={() => deleteTimelineItem(item.id)}>🗑️ 删除</button>
+              </div>
             </div>
           </div>
         {/each}
+        {#if timeline.length === 0}
+          <div class="timeline-empty">还没有职业经历，点击右上角添加</div>
+        {/if}
       </div>
     </div>
   </section>
+
+  <!-- 职业历程 弹窗 -->
+  {#if showTimelineModal}
+    <div class="modal-overlay" on:click|self={closeTimelineModal}>
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>{editingTimelineId === null ? '添加职业经历' : '编辑职业经历'}</h3>
+          <button class="modal-close" on:click={closeTimelineModal}>✕</button>
+        </div>
+        <div class="modal-body">
+          {#if timelineFormError}
+            <p class="form-error">{timelineFormError}</p>
+          {/if}
+          <label class="form-label">
+            年份 <span class="required">*</span>
+            <input class="form-input" type="text" placeholder="例：2024" bind:value={timelineForm.year} />
+          </label>
+          <label class="form-label">
+            职位标题 <span class="required">*</span>
+            <input class="form-input" type="text" placeholder="例：全栈开发工程师" bind:value={timelineForm.title} />
+          </label>
+          <label class="form-label">
+            公司 / 组织
+            <input class="form-input" type="text" placeholder="例：科技公司" bind:value={timelineForm.company} />
+          </label>
+          <label class="form-label">
+            描述
+            <textarea class="form-textarea" rows="3" placeholder="简短描述这段经历..." bind:value={timelineForm.description}></textarea>
+          </label>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-modal-cancel" disabled={timelineSaving} on:click={closeTimelineModal}>取消</button>
+          <button class="btn-modal-save" disabled={timelineSaving} on:click={saveTimeline}>
+            {timelineSaving ? '保存中...' : '保存'}
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 
   <!-- CTA 区域 -->
   <section class="cta-section">
@@ -907,6 +1016,216 @@
   .timeline-desc {
     color: #718096;
     line-height: 1.5;
+  }
+
+  /* 时间线 CRUD */
+  .btn-timeline-add {
+    padding: 0.6rem 1.4rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+
+  .btn-timeline-add:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  }
+
+  .timeline-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+
+  .tl-btn {
+    padding: 0.35rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+  }
+
+  .tl-edit {
+    background: #f0fff4;
+    color: #38a169;
+    border: 1px solid #c6f6d5;
+  }
+
+  .tl-edit:hover {
+    background: #38a169;
+    color: white;
+  }
+
+  .tl-delete {
+    background: #fff5f5;
+    color: #e53e3e;
+    border: 1px solid #fed7d7;
+  }
+
+  .tl-delete:hover {
+    background: #e53e3e;
+    color: white;
+  }
+
+  .timeline-empty {
+    text-align: center;
+    color: #a0aec0;
+    padding: 3rem;
+    background: white;
+    border-radius: 12px;
+    font-size: 1rem;
+  }
+
+  /* 弹窗 */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+
+  .modal-box {
+    background: white;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 480px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .modal-header h3 {
+    font-size: 1.2rem;
+    color: #2d3748;
+    margin: 0;
+  }
+
+  .modal-close {
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    color: #a0aec0;
+    cursor: pointer;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    transition: background 0.2s;
+  }
+
+  .modal-close:hover {
+    background: #f7fafc;
+    color: #4a5568;
+  }
+
+  .modal-body {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .form-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #4a5568;
+  }
+
+  .required {
+    color: #e53e3e;
+  }
+
+  .form-input,
+  .form-textarea {
+    padding: 0.6rem 0.9rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    color: #2d3748;
+    transition: border-color 0.2s;
+    outline: none;
+    font-family: inherit;
+  }
+
+  .form-input:focus,
+  .form-textarea:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+  }
+
+  .form-textarea {
+    resize: vertical;
+  }
+
+  .form-error {
+    color: #e53e3e;
+    font-size: 0.88rem;
+    background: #fff5f5;
+    border: 1px solid #fed7d7;
+    border-radius: 6px;
+    padding: 0.5rem 0.8rem;
+    margin: 0;
+  }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  .btn-modal-cancel {
+    padding: 0.6rem 1.4rem;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    color: #4a5568;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .btn-modal-cancel:hover {
+    background: #f7fafc;
+  }
+
+  .btn-modal-save {
+    padding: 0.6rem 1.4rem;
+    border-radius: 8px;
+    border: none;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-modal-save:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
   }
 
   /* CTA 区域 */

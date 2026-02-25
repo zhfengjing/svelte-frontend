@@ -36,6 +36,10 @@ export const API_ENDPOINTS = {
   USER_PROFILE: '/user/profile',
   USER_STATS: '/user/stats',
 
+  // 职业历程相关
+  TIMELINE: '/user/timeline',
+  TIMELINE_ITEM: (id) => `/user/timeline/${id}`,
+
   // 订阅相关
   SUBSCRIBE: '/subscribe',
 
