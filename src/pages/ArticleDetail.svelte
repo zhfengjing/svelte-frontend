@@ -3,18 +3,16 @@
   import { link } from 'svelte-spa-router';
   import Loading from '../components/Loading.svelte';
   import ErrorMessage from '../components/ErrorMessage.svelte';
+  import CommentSection from '../components/CommentSection.svelte';
   import DOMPurify from 'dompurify';
-  import { articleApi, commentApi, followApi, likeApi, bookmarkApi } from '../services/api.js';
+  import { articleApi, followApi, likeApi, bookmarkApi } from '../services/api.js';
 
   export let params = {};
 
   let article = null;
   let relatedArticles = [];
-  let comments = [];
-  let comment = '';
   let loading = true;
   let error = null;
-  let submitting = false;
 
   // 关注状态
   let following = false;
@@ -37,15 +35,9 @@
     error = null;
 
     try {
-      // 并行加载文章详情和评论
       const articleId = params.id;
-      const [articleData, commentsData] = await Promise.all([
-        articleApi.getArticleById(articleId),
-        commentApi.getComments(articleId).catch(() => ({ data: [] })) // 评论加载失败不影响文章显示
-      ]);
-
+      const articleData = await articleApi.getArticleById(articleId);
       article = articleData.data || articleData;
-      comments = commentsData.data || commentsData;
 
       // 加载关注状态
       if (article) {
@@ -154,33 +146,6 @@
     }
   };
 
-  // 提交评论
-  const handleSubmitComment = async () => {
-    if (!comment.trim()) {
-      alert('请输入评论内容');
-      return;
-    }
-
-    submitting = true;
-    try {
-      const newComment = await commentApi.createComment(params.id, {
-        content: comment,
-        author: '匿名用户', // 实际应用中应该从用户信息中获取
-        date: new Date().toISOString().split('T')[0]
-      });
-
-      // 添加新评论到列表
-      comments = [newComment.data || newComment, ...comments];
-      comment = '';
-      alert('评论发表成功！');
-    } catch (err) {
-      console.error('发表评论失败:', err);
-      alert(err.response?.data?.message || '发表评论失败，请稍后重试');
-    } finally {
-      submitting = false;
-    }
-  };
-
   onMount(() => {
     loadArticle();
   });
@@ -278,41 +243,8 @@
           </button>
         </div>
 
-        <!-- 评论区 -->
-        <div class="comments-section">
-          <h2>💬 评论 ({comments.length})</h2>
-
-          <form class="comment-form" on:submit|preventDefault={handleSubmitComment}>
-            <textarea
-              bind:value={comment}
-              placeholder="写下你的评论..."
-              rows="4"
-              disabled={submitting}
-            ></textarea>
-            <button type="submit" class="submit-btn" disabled={submitting}>
-              {submitting ? '提交中...' : '发表评论'}
-            </button>
-          </form>
-
-          <div class="comments-list">
-            {#if comments.length > 0}
-              {#each comments as commentItem (commentItem.id)}
-                <div class="comment">
-                  <div class="comment-avatar">👤</div>
-                  <div class="comment-content">
-                    <div class="comment-header">
-                      <strong>{commentItem.author}</strong>
-                      <span class="comment-date">{commentItem.date}</span>
-                    </div>
-                    <p>{commentItem.content}</p>
-                  </div>
-                </div>
-              {/each}
-            {:else}
-              <p class="no-comments">暂无评论，快来发表第一条评论吧！</p>
-            {/if}
-          </div>
-        </div>
+        <!-- 评论区：抽取为独立组件 -->
+        <CommentSection articleId={params.id} />
       </div>
 
       <!-- 侧边栏 -->
@@ -573,87 +505,6 @@
     opacity: 0.7;
     cursor: not-allowed;
     transform: none;
-  }
-
-  /* 评论区 */
-  .comments-section {
-    margin-top: 3rem;
-    padding-top: 3rem;
-    border-top: 2px solid #e2e8f0;
-  }
-
-  .comments-section h2 {
-    margin-bottom: 1.5rem;
-    color: #2d3748;
-  }
-
-  .comment-form {
-    margin-bottom: 2rem;
-  }
-
-  .comment-form textarea {
-    width: 100%;
-    padding: 1rem;
-    border: 2px solid #e2e8f0;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-family: inherit;
-    resize: vertical;
-    margin-bottom: 1rem;
-  }
-
-  .comment-form textarea:focus {
-    outline: none;
-    border-color: #667eea;
-  }
-
-  .submit-btn {
-    padding: 0.8rem 2rem;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.3s ease;
-  }
-
-  .submit-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-  }
-
-  .comments-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-
-  .comment {
-    display: flex;
-    gap: 1rem;
-    padding: 1rem;
-    background: #f7fafc;
-    border-radius: 8px;
-  }
-
-  .comment-avatar {
-    font-size: 2rem;
-  }
-
-  .comment-content {
-    flex: 1;
-  }
-
-  .comment-header {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 0.5rem;
-  }
-
-  .comment-date {
-    color: #a0aec0;
-    font-size: 0.9rem;
   }
 
   /* 侧边栏 */
