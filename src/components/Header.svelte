@@ -32,7 +32,7 @@
 
         <div class="nav-menu">
           <ul class="nav-links" class:mobile-open={mobileMenuOpen}>
-            {#each navItems as item}
+            {#each navItems as item (item.path)}
               <li>
                 <a
                   href={item.path}

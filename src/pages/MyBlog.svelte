@@ -251,7 +251,7 @@
           </p>
 
           <div class="social-links">
-            {#each socialLinks as social}
+            {#each socialLinks as social (social.name)}
               <a href={social.url} class="social-link" target="_blank" rel="noopener">
                 <span class="social-icon">{social.icon}</span>
                 <span class="social-name">{social.name}</span>
@@ -267,7 +267,7 @@
       </div>
 
       <div class="stats-grid">
-        {#each stats as stat}
+        {#each stats as stat (stat.label)}
           <div class="stat-card">
             <div class="stat-icon">{stat.icon}</div>
             <div class="stat-value">{stat.value}</div>
@@ -346,7 +346,7 @@
     <div class="container">
       <h2>💪 技能专长</h2>
       <div class="skills-grid">
-        {#each skills as skill}
+        {#each skills as skill (skill.name)}
           <div class="skill-item">
             <div class="skill-header">
               <span class="skill-icon">{skill.icon}</span>
@@ -367,7 +367,7 @@
     <div class="container">
       <h2>🚀 精选项目</h2>
       <div class="projects-grid">
-        {#each projects as project}
+        {#each projects as project (project.name)}
           <div class="project-card">
             <div class="project-image">
               <img src={project.image} alt={project.name} />
@@ -379,7 +379,7 @@
               <h3>{project.name}</h3>
               <p>{project.description}</p>
               <div class="project-tech">
-                {#each project.tech as tech}
+                {#each project.tech as tech (tech)}
                   <span class="tech-tag">{tech}</span>
                 {/each}
               </div>
@@ -398,7 +398,7 @@
         <button class="btn btn-timeline-add" on:click={openAddTimeline}>+ 添加经历</button>
       </div>
       <div class="timeline">
-        {#each timeline as item, index}
+        {#each timeline as item, index (item.id || item.year)}
           <div class="timeline-item" class:left={index % 2 === 0} class:right={index % 2 !== 0}>
             <div class="timeline-marker"></div>
             <div class="timeline-content">
@@ -422,7 +422,7 @@
 
   <!-- 职业历程 弹窗 -->
   {#if showTimelineModal}
-    <div class="modal-overlay" on:click|self={closeTimelineModal}>
+    <div class="modal-overlay" role="presentation" on:click|self={closeTimelineModal} on:keydown|self={(e) => e.key === 'Escape' && closeTimelineModal()}>
       <div class="modal-box">
         <div class="modal-header">
           <h3>{editingTimelineId === null ? '添加职业经历' : '编辑职业经历'}</h3>

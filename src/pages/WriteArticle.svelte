@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { push } from 'svelte-spa-router';
+  import DOMPurify from 'dompurify';
   import { articleApi, categoryApi } from '../services/api.js';
 
   export let params = {};
@@ -17,14 +18,12 @@
   let showPreview = false;
   let saving = false;
   let categories = [];
-  let loadingCategories = true;
   let loadingArticle = false;
 
   $: editMode = !!params.id;
 
   // 加载分类列表
   const loadCategories = async () => {
-    loadingCategories = true;
     try {
       const response = await categoryApi.getCategories();
       const categoriesData = response.data || response;
@@ -40,8 +39,6 @@
         { id: 'programming', name: '编程语言' },
         { id: 'design', name: '设计' }
       ];
-    } finally {
-      loadingCategories = false;
     }
   };
 
@@ -178,7 +175,7 @@
 
   // 自动生成摘要
   $: if (article.content && !article.excerpt) {
-    const plainText = article.content.replace(/[#*`\[\]]/g, '').trim();
+    const plainText = article.content.replace(/[#*`[\]]/g, '').trim();
     article.excerpt = plainText.substring(0, 150) + (plainText.length > 150 ? '...' : '');
   }
 </script>
@@ -231,7 +228,7 @@
             <div class="form-group">
               <label for="category">分类</label>
               <select id="category" bind:value={article.category} class="select-field">
-                {#each categories as cat}
+                {#each categories as cat (cat.id)}
                   <option value={cat.id}>{cat.name}</option>
                 {/each}
               </select>
@@ -281,7 +278,7 @@
 
         <!-- Markdown 编辑器 -->
         <div class="form-section">
-          <label>文章内容 * (支持 Markdown)</label>
+          <label for="content">文章内容 * (支持 Markdown)</label>
 
           <!-- Markdown 工具栏 -->
           <div class="markdown-toolbar">
@@ -303,10 +300,10 @@
             </button>
             <div class="toolbar-divider"></div>
             <button type="button" class="toolbar-btn" on:click={() => insertMarkdown('code')} title="行内代码">
-              {'<>'}
+              &lt;&gt;
             </button>
             <button type="button" class="toolbar-btn" on:click={() => insertMarkdown('codeblock')} title="代码块">
-              {'{ }'}
+              &#123; &#125;
             </button>
             <button type="button" class="toolbar-btn" on:click={() => insertMarkdown('list')} title="列表">
               ≡
@@ -314,6 +311,7 @@
           </div>
 
           <textarea
+            id="content"
             bind:value={article.content}
             placeholder="开始写作...
 
@@ -361,7 +359,8 @@
 
         <div class="preview-content">
           {#if article.content}
-            {@html article.content
+            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+            {@html DOMPurify.sanitize(article.content
               .replace(/\n/g, '<br>')
               .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
               .replace(/\*(.*?)\*/g, '<em>$1</em>')
@@ -371,7 +370,7 @@
               .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>')
               .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" />')
               .replace(/^-\s(.*?)(<br>|$)/gm, '<li>$1</li>')
-            }
+            )}
           {:else}
             <p class="empty-content">暂无内容</p>
           {/if}

@@ -104,7 +104,7 @@
   <section class="stats">
     <div class="container">
       <div class="stats-grid">
-        {#each stats as stat}
+        {#each stats as stat (stat.label)}
           <div class="stat-card">
             <div class="stat-icon">{stat.icon}</div>
             <div class="stat-number">{stat.number}</div>
@@ -129,7 +129,7 @@
         <ErrorMessage message={error} onRetry={loadData} />
       {:else if featuredArticles.length > 0}
         <div class="articles-grid">
-          {#each featuredArticles as article}
+          {#each featuredArticles as article (article.id)}
             <ArticleCard {article} />
           {/each}
         </div>

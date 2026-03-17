@@ -3,6 +3,7 @@
   import { link } from 'svelte-spa-router';
   import Loading from '../components/Loading.svelte';
   import ErrorMessage from '../components/ErrorMessage.svelte';
+  import DOMPurify from 'dompurify';
   import { articleApi, commentApi, followApi, likeApi, bookmarkApi } from '../services/api.js';
 
   export let params = {};
@@ -237,12 +238,13 @@
       <!-- 文章内容 -->
       <div class="article-main">
         <div class="article-content">
-          {@html article.content}
+          <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+          {@html DOMPurify.sanitize(article.content)}
         </div>
 
         <!-- 标签 -->
         <div class="article-tags">
-          {#each article.tags as tag}
+          {#each article.tags as tag (tag)}
             <span class="tag">#{tag}</span>
           {/each}
         </div>
@@ -294,7 +296,7 @@
 
           <div class="comments-list">
             {#if comments.length > 0}
-              {#each comments as commentItem}
+              {#each comments as commentItem (commentItem.id)}
                 <div class="comment">
                   <div class="comment-avatar">👤</div>
                   <div class="comment-content">
@@ -340,7 +342,7 @@
         <div class="sidebar-card">
           <h3>📖 相关文章</h3>
           <ul class="related-list">
-            {#each relatedArticles as related}
+            {#each relatedArticles as related (related.id)}
               <li>
                 <a href={`/article/${related.id}`} use:link>
                   {related.title}

@@ -56,7 +56,7 @@
   <div class="container">
     <!-- 时间范围选择 -->
     <div class="time-range-selector">
-      {#each timeRanges as range}
+      {#each timeRanges as range (range.id)}
         <button
           class="range-btn"
           class:active={selectedRange === range.id}
@@ -81,7 +81,7 @@
         <ErrorMessage message={error} onRetry={() => loadPopularArticles(selectedRange)} />
       {:else if popularArticles.length > 0}
         <div class="ranking-grid">
-          {#each popularArticles as article, index}
+          {#each popularArticles as article, index (article.id)}
             <div class="ranking-item">
               <div class="rank-number" class:top-three={index < 3}>
                 {#if index === 0}

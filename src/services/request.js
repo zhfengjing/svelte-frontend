@@ -17,7 +17,6 @@ request.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    console.log('发送请求:', config.method?.toUpperCase(), config.url);
     return config;
   },
   (error) => {
@@ -29,7 +28,6 @@ request.interceptors.request.use(
 // 响应拦截器
 request.interceptors.response.use(
   (response) => {
-    console.log('响应成功:', response.config.url, response.status);
     return response.data;
   },
   (error) => {

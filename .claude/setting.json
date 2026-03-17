@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run*)",
+      "Bash(npm install*)",
+      "Bash(git status)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Bash(git pull*)",
+      "Bash(git checkout*)",
+      "Bash(git branch*)",
+      "Read(**)",
+      "Write(src/**)",
+      "Edit(src/**)"
+    ],
+    "deny": [
+      "Bash(rm -rf*)",
+      "Bash(git push --force*)",
+      "Bash(git reset --hard*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"\nimport json, sys, subprocess, os\ndata = json.load(sys.stdin)\ncmd = data.get('command', '')\nif 'git commit' in cmd:\n    print('>>> 提交前 lint 检查...')\n    result = subprocess.run(['npm', 'run', 'lint'], capture_output=True, text=True, cwd=os.getcwd())\n    if result.returncode != 0:\n        print('>>> Lint 检查失败，请修复后再提交:')\n        print(result.stdout)\n        print(result.stderr)\n        sys.exit(2)\n    else:\n        print('>>> Lint 检查通过!')\n\""
+          }
+        ]
+      }
+    ]
+  }
+}

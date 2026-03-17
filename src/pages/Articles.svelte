@@ -63,7 +63,7 @@
       return Array.from({ length: totalPages }, (_, i) => i + 1);
     }
     let start = Math.max(1, currentPage - 2);
-    let end = Math.min(totalPages, start + 4);
+    const end = Math.min(totalPages, start + 4);
     if (end - start < 4) start = Math.max(1, end - 4);
     return Array.from({ length: end - start + 1 }, (_, i) => start + i);
   })();
@@ -101,7 +101,7 @@
       </div>
 
       <div class="categories">
-        {#each categories as category}
+        {#each categories as category (category.id)}
           <button
             class="category-btn"
             class:active={selectedCategory === (category.id === 'all' ? 'all' : category.name)}
@@ -129,7 +129,7 @@
 
       {#if paginatedArticles.length > 0}
         <div class="articles-grid">
-          {#each paginatedArticles as article}
+          {#each paginatedArticles as article (article.id)}
             <ArticleCard {article} />
           {/each}
         </div>
@@ -149,7 +149,7 @@
           ← 上一页
         </button>
         <div class="page-numbers">
-          {#each pageNumbers as page}
+          {#each pageNumbers as page (page)}
             <button
               class="page-number"
               class:active={page === currentPage}

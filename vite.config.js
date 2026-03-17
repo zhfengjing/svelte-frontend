@@ -10,5 +10,16 @@ export default defineConfig({
       changeOrigin: true,
       // rewrite: (path) => path.replace(/^\/api/, '') // 去掉 /api 前缀
     }
+  },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./src/test/setup.js'],
+    include: ['src/**/*.{test,spec}.{js,ts}'],
+    coverage: {
+      reporter: ['text', 'html'],
+      include: ['src/**/*.{js,svelte}'],
+      exclude: ['src/main.js', 'src/test/**']
+    }
   }
 })
