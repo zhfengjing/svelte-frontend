@@ -4,11 +4,12 @@ import { svelte } from '@sveltejs/vite-plugin-svelte'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [svelte()],
-  proxy: {
-    '/api': {
-      target: 'http://localhost:3000', // 后端 API 服务器地址
-      changeOrigin: true,
-      // rewrite: (path) => path.replace(/^\/api/, '') // 去掉 /api 前缀
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000', // 后端 API 服务器地址
+        changeOrigin: true,
+      }
     }
   },
   test: {
